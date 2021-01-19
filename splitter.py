@@ -3,19 +3,19 @@ import os
 import numpy as np
 import soundfile as sf
 
-def split(audio, sr, threshold=20, max_length=10):
+def split(audio, sr, threshold=20, max_length=10, pause=0.2):
     res = librosa.effects.split(audio, top_db=threshold)
     out = []
     length = 0
     cur = []
     for sp in res:
-        _length = length + sp[1] - sp[0] 
+        _length = length + sp[1] - sp[0] + pause*sr
         if _length > (sr*max_length) and cur:
             if length <= (sr*max_length):
                 out.append(cur)
                 cur = []
             length = 0
-            _length = length + sp[1] - sp[0] 
+            _length = length + sp[1] - sp[0] + pause*sr
         if sp[1] - sp[0] <= (sr*max_length):
             cur.append(sp)
             length = _length
@@ -31,17 +31,17 @@ def make_audio(audio, parts, sr, pause=0.2):
         res = np.concatenate((res,audio[s-_pause:e]))
     return res
 
-def save_clips(audio, splits, sr, output_path, input_path):
+def save_clips(audio, splits, sr, output_path, input_path, pause):
     name = input_path.split('/')[-1].replace('.wav','')
     os.makedirs(output_path, exist_ok=True)
     for i,sp in enumerate(splits):
-        a = make_audio(audio, sp, sr, pause=0.2)
+        a = make_audio(audio, sp, sr, pause=pause)
         sf.write(os.path.join(output_path,'%s_%04d.wav' % (name,i)), a, sr)
 
-def main(input, output, db_thresh=20, max_length=10):
+def main(input, output, db_thresh=20, max_length=10, pause=0.2):
     audio, sr = librosa.load(input)
-    splits = split(audio, sr, threshold=db_thresh, max_length=max_length)
-    save_clips(audio, splits, sr, output, input)
+    splits = split(audio, sr, threshold=db_thresh, max_length=max_length, pause=pause)
+    save_clips(audio, splits, sr, output, input, pause)
 
 if __name__ == '__main__':
     import argparse
@@ -62,6 +62,10 @@ if __name__ == '__main__':
                         help="Max clip length in seconds.", 
                         type=float,
                         default=10) 
+    parser.add_argument("--pause", "-p", 
+                        help="Max pause between chunks.", 
+                        type=float,
+                        default=0.2) 
 
     args = parser.parse_args()
 
